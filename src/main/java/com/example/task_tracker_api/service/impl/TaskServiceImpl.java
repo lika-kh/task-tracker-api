@@ -5,7 +5,9 @@ import com.example.task_tracker_api.dto.task.TaskUpdateRequestDto;
 import com.example.task_tracker_api.entity.Project;
 import com.example.task_tracker_api.entity.Task;
 import com.example.task_tracker_api.entity.User;
+import com.example.task_tracker_api.enums.RoleType;
 import com.example.task_tracker_api.enums.TaskStatus;
+import com.example.task_tracker_api.exception.AccessDeniedException;
 import com.example.task_tracker_api.mapper.TaskMapper;
 import com.example.task_tracker_api.repository.ProjectRepository;
 import com.example.task_tracker_api.repository.TaskRepository;
@@ -56,9 +58,9 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public TaskResponseDto updateTask(Long taskId, TaskUpdateRequestDto request) {
-
         Task task = getTaskOrThrow(taskId);
         checkTaskAccess(task);
+        checkAssignPermission();
         task.setTitle(request.title());
         task.setDescription(request.description());
         task.setDueDate(request.dueDate());
@@ -115,7 +117,19 @@ public class TaskServiceImpl implements TaskService {
                 task.getProject().getOwner().getId().equals(currentUserId);
 
         if (!isAssignedUser && !isProjectOwner) {
-            throw new RuntimeException("Access denied");
+            throw new AccessDeniedException("Access denied");
+        }
+    }
+
+    private void checkAssignPermission() {
+        Long currentUserId = getCurrentUserId();
+
+        User currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (currentUser.getRole() != RoleType.ADMIN &&
+                currentUser.getRole() != RoleType.MANAGER) {
+            throw new RuntimeException("Only ADMIN or MANAGER can assign tasks");
         }
     }
 
