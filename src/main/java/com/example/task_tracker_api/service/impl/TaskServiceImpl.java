@@ -58,7 +58,7 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponseDto updateTask(Long taskId, TaskUpdateRequestDto request) {
 
         Task task = getTaskOrThrow(taskId);
-
+        checkTaskAccess(task);
         task.setTitle(request.title());
         task.setDescription(request.description());
         task.setDueDate(request.dueDate());
@@ -73,6 +73,7 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponseDto updateTaskStatus(Long taskId, TaskStatus status) {
 
         Task task = getTaskOrThrow(taskId);
+        checkTaskAccess(task);
         task.setStatus(status);
 
         log.info("Updating task status: taskId={}, status={}", taskId, status);
@@ -83,9 +84,8 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public void deleteTask(Long taskId) {
         Task task = getTaskOrThrow(taskId);
-
+        checkTaskAccess(task);
         log.info("Deleting task: taskId={}", taskId);
-
         taskRepository.delete(task);
     }
 
@@ -104,6 +104,21 @@ public class TaskServiceImpl implements TaskService {
         return taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Task not found"));
     }
+
+    private void checkTaskAccess(Task task) {
+        Long currentUserId = getCurrentUserId();
+
+        boolean isAssignedUser =
+                task.getAssignedUser().getId().equals(currentUserId);
+
+        boolean isProjectOwner =
+                task.getProject().getOwner().getId().equals(currentUserId);
+
+        if (!isAssignedUser && !isProjectOwner) {
+            throw new RuntimeException("Access denied");
+        }
+    }
+
 
     private Long getCurrentUserId() {
         return 1L;
